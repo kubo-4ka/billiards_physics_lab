@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ビリヤード物理実験室</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111827;
+      --panel: #1f2937;
+      --panel2: #273449;
+      --text: #f3f4f6;
+      --muted: #a7b0c0;
+      --accent: #38bdf8;
+      --danger: #fb7185;
+      --ok: #34d399;
+      --border: #40506a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1c2942, var(--bg) 55%);
+      color: var(--text);
+    }
+
+    .app {
+      width: min(1400px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .panel {
+      background: rgba(31, 41, 55, 0.94);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 18px 45px rgba(0,0,0,.25);
+    }
+
+    .controls {
+      padding: 18px;
+      position: sticky;
+      top: 18px;
+      align-self: start;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.35rem;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: .92rem;
+    }
+
+    .group {
+      padding: 14px 0;
+      border-top: 1px solid #36445b;
+    }
+
+    .group:first-of-type { border-top: 0; padding-top: 0; }
+
+    .group-title {
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .field { margin: 12px 0; }
+
+    .field label,
+    .value-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: .92rem;
+    }
+
+    input[type="range"] { width: 100%; }
+    input[type="checkbox"] { transform: scale(1.15); }
+
+    button, select, input[type="number"] {
+      width: 100%;
+      border: 1px solid #53627a;
+      border-radius: 10px;
+      background: #182235;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      transition: transform .08s ease, border-color .15s ease, background .15s ease;
+    }
+
+    button:hover { border-color: var(--accent); background: #21304a; }
+    button:active { transform: translateY(1px); }
+
+    .primary {
+      background: #0c4a6e;
+      border-color: #0ea5e9;
+      font-weight: 700;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #15243a;
+      border: 1px solid #3b4a62;
+      color: #c7d2fe;
+      font-size: .78rem;
+    }
+
+    .help {
+      font-size: .82rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .stage {
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 420px;
+      overflow: hidden;
+      border-radius: 14px;
+      background: #07130f;
+      border: 1px solid #425269;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .status-bar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .status {
+      background: #182235;
+      border: 1px solid #37465f;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .status small { color: var(--muted); display: block; margin-bottom: 2px; }
+    .status strong { font-size: 1rem; }
+
+    .legend {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: .86rem;
+      line-height: 1.6;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: #fbbf24; }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .controls { position: static; }
+      .canvas-wrap { min-height: 330px; }
+      .status-bar { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel controls">
+      <h1>ビリヤード物理実験室</h1>
+      <p class="subtitle">摩擦や反発係数を変えながら、クッション反射とボール同士の衝突を観察できます。</p>
+
+      <div class="group">
+        <div class="group-title">ショット</div>
+        <div class="field">
+          <div class="value-row"><span>強さ</span><span id="powerValue" class="badge">55%</span></div>
+          <input id="power" type="range" min="5" max="100" value="55" />
+        </div>
+        <button id="shootBtn" class="primary">狙った方向へショット</button>
+        <div class="button-row">
+          <button id="stopBtn">全停止</button>
+          <button id="resetBtn">初期配置</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">ステージ物理</div>
+        <div class="field">
+          <div class="value-row"><span>摩擦</span><span id="frictionValue" class="badge"></span></div>
+          <input id="friction" type="range" min="0" max="3" value="0.45" step="0.01" />
+        </div>
+        <div class="field">
+          <div class="value-row"><span>反発係数</span><span id="restitutionValue" class="badge"></span></div>
+          <input id="restitution" type="range" min="0.2" max="1" value="0.96" step="0.01" />
+        </div>
+        <div class="field">
+          <label><span>完全弾性衝突</span><input id="perfectElastic" type="checkbox" /></label>
+        </div>
+        <div class="field">
+          <label for="preset">プリセット</label>
+          <select id="preset">
+            <option value="normal">標準テーブル</option>
+            <option value="ice">めっちゃ滑る</option>
+            <option value="mud">全然転がらない</option>
+            <option value="bouncy">超反射</option>
+            <option value="inelastic">エネルギー吸収</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">表示</div>
+        <label class="field"><span>速度ベクトルを表示</span><input id="showVectors" type="checkbox" checked /></label>
+        <label class="field"><span>軌跡を表示</span><input id="showTrails" type="checkbox" /></label>
+        <label class="field"><span>衝突回数を表示</span><input id="showCollisions" type="checkbox" checked /></label>
+      </div>
+
+      <div class="group help">
+        <strong>操作方法</strong><br />
+        白球からドラッグして狙いを決め、離すとショットします。クリックだけでも照準を変更できます。ボール停止中は白球をドラッグして起点を移動できます。
+      </div>
+    </section>
+
+    <section class="panel stage">
+      <div class="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+      </div>
+      <div class="status-bar">
+        <div class="status"><small>状態</small><strong id="motionState">停止中</strong></div>
+        <div class="status"><small>白球速度</small><strong id="cueSpeed">0.00</strong></div>
+        <div class="status"><small>衝突回数</small><strong id="collisionCount">0</strong></div>
+        <div class="status"><small>総運動エネルギー</small><strong id="energyValue">0.00</strong></div>
+      </div>
+      <div class="legend">
+        反発係数 1.00 は理想的な完全弾性衝突です。摩擦を 0 にするとほぼ永久に滑り続けます。
+        実際のビリヤードでは回転、空気抵抗、布の方向性なども影響しますが、この版では平面上の並進運動に絞っています。
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const ui = {
+        power: document.getElementById('power'),
+        friction: document.getElementById('friction'),
+        restitution: document.getElementById('restitution'),
+        perfectElastic: document.getElementById('perfectElastic'),
+        preset: document.getElementById('preset'),
+        shootBtn: document.getElementById('shootBtn'),
+        stopBtn: document.getElementById('stopBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        showVectors: document.getElementById('showVectors'),
+        showTrails: document.getElementById('showTrails'),
+        showCollisions: document.getElementById('showCollisions'),
+        powerValue: document.getElementById('powerValue'),
+        frictionValue: document.getElementById('frictionValue'),
+        restitutionValue: document.getElementById('restitutionValue'),
+        motionState: document.getElementById('motionState'),
+        cueSpeed: document.getElementById('cueSpeed'),
+        collisionCount: document.getElementById('collisionCount'),
+        energyValue: document.getElementById('energyValue')
+      };
+
+      const world = {
+        width: 1200,
+        height: 675,
+        rail: 42,
+        ballRadius: 16,
+        aimAngle: 0,
+        collisions: 0,
+        draggingAim: false,
+        movingCue: false,
+        pointer: { x: 0, y: 0 },
+        trails: [],
+        lastTime: performance.now(),
+        scaleX: 1,
+        scaleY: 1
+      };
+
+      const colors = ['#ffffff', '#facc15', '#3b82f6', '#ef4444', '#8b5cf6', '#f97316', '#22c55e', '#7f1d1d'];
+      let balls = [];
+
+      class Ball {
+        constructor(x, y, color, label, isCue = false) {
+          this.x = x;
+          this.y = y;
+          this.vx = 0;
+          this.vy = 0;
+          this.radius = world.ballRadius;
+          this.mass = 1;
+          this.color = color;
+          this.label = label;
+          this.isCue = isCue;
+        }
+
+        get speed() { return Math.hypot(this.vx, this.vy); }
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        world.scaleX = rect.width / world.width;
+        world.scaleY = rect.height / world.height;
+      }
+
+      function toWorld(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (clientX - rect.left) / rect.width * world.width,
+          y: (clientY - rect.top) / rect.height * world.height
+        };
+      }
+
+      function cueBall() { return balls[0]; }
+
+      function resetBalls() {
+        const cy = world.height / 2;
+        balls = [new Ball(250, cy, colors[0], '', true)];
+
+        const startX = 820;
+        const spacingX = world.ballRadius * 1.76;
+        const spacingY = world.ballRadius * 2.05;
+        let n = 1;
+        for (let row = 0; row < 5; row++) {
+          for (let i = 0; i <= row; i++) {
+            balls.push(new Ball(
+              startX + row * spacingX,
+              cy - row * world.ballRadius + i * spacingY,
+              colors[(n % (colors.length - 1)) + 1],
+              String(n)
+            ));
+            n++;
+          }
+        }
+
+        world.aimAngle = 0;
+        world.collisions = 0;
+        world.trails = [];
+      }
+
+      function allStopped() {
+        return balls.every(b => b.speed < 2.5);
+      }
+
+      function stopAll() {
+        balls.forEach(b => { b.vx = 0; b.vy = 0; });
+      }
+
+      function shoot() {
+        if (!allStopped()) return;
+        const power = Number(ui.power.value) / 100;
+        const speed = 1250 * power;
+        const cue = cueBall();
+        cue.vx = Math.cos(world.aimAngle) * speed;
+        cue.vy = Math.sin(world.aimAngle) * speed;
+      }
+
+      function applyPreset(value) {
+        const map = {
+          normal: [0.45, 0.96],
+          ice: [0.015, 0.99],
+          mud: [2.4, 0.82],
+          bouncy: [0.12, 1.0],
+          inelastic: [0.35, 0.45]
+        };
+        const [f, r] = map[value] || map.normal;
+        ui.friction.value = f;
+        ui.restitution.value = r;
+        ui.perfectElastic.checked = r === 1;
+        updateLabels();
+      }
+
+      function updateLabels() {
+        ui.powerValue.textContent = `${ui.power.value}%`;
+        ui.frictionValue.textContent = Number(ui.friction.value).toFixed(2);
+        const e = ui.perfectElastic.checked ? 1 : Number(ui.restitution.value);
+        ui.restitutionValue.textContent = e.toFixed(2);
+        ui.restitution.disabled = ui.perfectElastic.checked;
+      }
+
+      function physicsStep(dt) {
+        const friction = Number(ui.friction.value);
+        const restitution = ui.perfectElastic.checked ? 1 : Number(ui.restitution.value);
+        const left = world.rail + world.ballRadius;
+        const right = world.width - world.rail - world.ballRadius;
+        const top = world.rail + world.ballRadius;
+        const bottom = world.height - world.rail - world.ballRadius;
+
+        for (const b of balls) {
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
+
+          const speed = b.speed;
+          if (speed > 0) {
+            const decel = friction * 230 * dt;
+            const next = Math.max(0, speed - decel);
+            if (next < 1.5) {
+              b.vx = 0;
+              b.vy = 0;
+            } else {
+              b.vx *= next / speed;
+              b.vy *= next / speed;
+            }
+          }
+
+          if (b.x < left) {
+            b.x = left;
+            b.vx = Math.abs(b.vx) * restitution;
+            world.collisions++;
+          } else if (b.x > right) {
+            b.x = right;
+            b.vx = -Math.abs(b.vx) * restitution;
+            world.collisions++;
+          }
+
+          if (b.y < top) {
+            b.y = top;
+            b.vy = Math.abs(b.vy) * restitution;
+            world.collisions++;
+          } else if (b.y > bottom) {
+            b.y = bottom;
+            b.vy = -Math.abs(b.vy) * restitution;
+            world.collisions++;
+          }
+        }
+
+        for (let i = 0; i < balls.length; i++) {
+          for (let j = i + 1; j < balls.length; j++) {
+            resolveBallCollision(balls[i], balls[j], restitution);
+          }
+        }
+
+        if (ui.showTrails.checked && !allStopped()) {
+          world.trails.push(balls.map(b => ({ x: b.x, y: b.y, color: b.color })));
+          if (world.trails.length > 160) world.trails.shift();
+        }
+      }
+
+      function resolveBallCollision(a, b, restitution) {
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let dist = Math.hypot(dx, dy);
+        const minDist = a.radius + b.radius;
+        if (dist === 0) {
+          dx = 0.01;
+          dy = 0;
+          dist = 0.01;
+        }
+        if (dist >= minDist) return;
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const overlap = minDist - dist;
+        a.x -= nx * overlap * 0.5;
+        a.y -= ny * overlap * 0.5;
+        b.x += nx * overlap * 0.5;
+        b.y += ny * overlap * 0.5;
+
+        const rvx = b.vx - a.vx;
+        const rvy = b.vy - a.vy;
+        const velocityAlongNormal = rvx * nx + rvy * ny;
+        if (velocityAlongNormal > 0) return;
+
+        const impulse = -(1 + restitution) * velocityAlongNormal / (1 / a.mass + 1 / b.mass);
+        const ix = impulse * nx;
+        const iy = impulse * ny;
+        a.vx -= ix / a.mass;
+        a.vy -= iy / a.mass;
+        b.vx += ix / b.mass;
+        b.vy += iy / b.mass;
+        world.collisions++;
+      }
+
+      function drawTable() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const sx = w / world.width;
+        const sy = h / world.height;
+        ctx.save();
+        ctx.scale(sx, sy);
+
+        ctx.fillStyle = '#4a2b19';
+        ctx.fillRect(0, 0, world.width, world.height);
+
+        const g = ctx.createLinearGradient(0, 0, 0, world.height);
+        g.addColorStop(0, '#0f6b4c');
+        g.addColorStop(1, '#084f3a');
+        ctx.fillStyle = g;
+        ctx.fillRect(world.rail, world.rail, world.width - world.rail * 2, world.height - world.rail * 2);
+
+        ctx.strokeStyle = '#7a4b2a';
+        ctx.lineWidth = 14;
+        ctx.strokeRect(world.rail / 2, world.rail / 2, world.width - world.rail, world.height - world.rail);
+
+        ctx.strokeStyle = 'rgba(255,255,255,.07)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(world.width / 2, world.rail);
+        ctx.lineTo(world.width / 2, world.height - world.rail);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawTrails() {
+        if (!ui.showTrails.checked) return;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        ctx.save();
+        ctx.scale(w / world.width, h / world.height);
+        world.trails.forEach((frame, frameIndex) => {
+          const alpha = (frameIndex + 1) / world.trails.length * 0.18;
+          frame.forEach(p => {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        });
+        ctx.restore();
+      }
+
+      function drawBalls() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        ctx.save();
+        ctx.scale(w / world.width, h / world.height);
+
+        for (const b of balls) {
+          const grad = ctx.createRadialGradient(b.x - 6, b.y - 8, 2, b.x, b.y, b.radius);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(.22, b.color);
+          grad.addColorStop(1, '#111827');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(0,0,0,.45)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          if (b.label) {
+            ctx.fillStyle = 'rgba(255,255,255,.92)';
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 7.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#111827';
+            ctx.font = 'bold 9px system-ui';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(b.label, b.x, b.y + .5);
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawAim() {
+        if (!allStopped()) return;
+        const cue = cueBall();
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        ctx.save();
+        ctx.scale(w / world.width, h / world.height);
+        const length = 180 + Number(ui.power.value) * 2.2;
+        const x2 = cue.x + Math.cos(world.aimAngle) * length;
+        const y2 = cue.y + Math.sin(world.aimAngle) * length;
+
+        ctx.setLineDash([12, 10]);
+        ctx.strokeStyle = '#7dd3fc';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cue.x, cue.y);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#7dd3fc';
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - Math.cos(world.aimAngle - .45) * 18, y2 - Math.sin(world.aimAngle - .45) * 18);
+        ctx.lineTo(x2 - Math.cos(world.aimAngle + .45) * 18, y2 - Math.sin(world.aimAngle + .45) * 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawVectors() {
+        if (!ui.showVectors.checked) return;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        ctx.save();
+        ctx.scale(w / world.width, h / world.height);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.fillStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        for (const b of balls) {
+          if (b.speed < 5) continue;
+          const scale = 0.12;
+          const x2 = b.x + b.vx * scale;
+          const y2 = b.y + b.vy * scale;
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(x2, y2, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawCollisionCounter() {
+        if (!ui.showCollisions.checked) return;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,.45)';
+        ctx.fillRect(12, 12, 132, 32);
+        ctx.fillStyle = '#e5e7eb';
+        ctx.font = '14px system-ui';
+        ctx.fillText(`衝突: ${world.collisions}`, 24, 33);
+        ctx.restore();
+      }
+
+      function updateStatus() {
+        const cue = cueBall();
+        const moving = !allStopped();
+        ui.motionState.textContent = moving ? '運動中' : '停止中';
+        ui.motionState.className = moving ? 'warn' : 'ok';
+        ui.cueSpeed.textContent = cue.speed.toFixed(2);
+        ui.collisionCount.textContent = String(world.collisions);
+        const energy = balls.reduce((sum, b) => sum + 0.5 * b.mass * b.speed * b.speed, 0);
+        ui.energyValue.textContent = energy.toFixed(2);
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawTable();
+        drawTrails();
+        drawBalls();
+        drawAim();
+        drawVectors();
+        drawCollisionCounter();
+        updateStatus();
+      }
+
+      function loop(now) {
+        let dt = (now - world.lastTime) / 1000;
+        world.lastTime = now;
+        dt = Math.min(dt, 0.025);
+
+        const subSteps = 3;
+        for (let i = 0; i < subSteps; i++) physicsStep(dt / subSteps);
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      function insideCue(p) {
+        const c = cueBall();
+        return Math.hypot(p.x - c.x, p.y - c.y) <= c.radius * 1.6;
+      }
+
+      canvas.addEventListener('pointerdown', e => {
+        const p = toWorld(e.clientX, e.clientY);
+        world.pointer = p;
+        canvas.setPointerCapture(e.pointerId);
+        if (allStopped() && insideCue(p)) {
+          world.movingCue = e.shiftKey;
+          world.draggingAim = !e.shiftKey;
+        } else {
+          world.draggingAim = allStopped();
+          world.aimAngle = Math.atan2(p.y - cueBall().y, p.x - cueBall().x);
+        }
+      });
+
+      canvas.addEventListener('pointermove', e => {
+        const p = toWorld(e.clientX, e.clientY);
+        world.pointer = p;
+        if (!allStopped()) return;
+        if (world.movingCue) {
+          const c = cueBall();
+          c.x = Math.min(world.width - world.rail - c.radius, Math.max(world.rail + c.radius, p.x));
+          c.y = Math.min(world.height - world.rail - c.radius, Math.max(world.rail + c.radius, p.y));
+        } else if (world.draggingAim) {
+          world.aimAngle = Math.atan2(p.y - cueBall().y, p.x - cueBall().x);
+        }
+      });
+
+      canvas.addEventListener('pointerup', e => {
+        if (world.draggingAim && allStopped()) shoot();
+        world.draggingAim = false;
+        world.movingCue = false;
+        try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+
+      ui.shootBtn.addEventListener('click', shoot);
+      ui.stopBtn.addEventListener('click', stopAll);
+      ui.resetBtn.addEventListener('click', resetBalls);
+      ui.preset.addEventListener('change', e => applyPreset(e.target.value));
+      ui.power.addEventListener('input', updateLabels);
+      ui.friction.addEventListener('input', updateLabels);
+      ui.restitution.addEventListener('input', updateLabels);
+      ui.perfectElastic.addEventListener('change', updateLabels);
+      ui.showTrails.addEventListener('change', () => { if (!ui.showTrails.checked) world.trails = []; });
+      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('keydown', e => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          shoot();
+        }
+        if (e.key.toLowerCase() === 'r') resetBalls();
+        if (e.key.toLowerCase() === 's') stopAll();
+      });
+
+      resizeCanvas();
+      resetBalls();
+      updateLabels();
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
